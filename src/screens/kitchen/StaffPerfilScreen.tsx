@@ -14,6 +14,7 @@ import {
   Linking,
   StatusBar,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -63,6 +64,11 @@ export default function StaffPerfilScreen() {
   const [announcement, setAnnouncement] = useState(config.announcement);
   const [maintenanceMode, setMaintenanceMode] = useState(config.maintenanceMode);
 
+  // Estados para los modales de edición
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editField, setEditField] = useState<'name' | 'schedule'>('name');
+  const [editValue, setEditValue] = useState('');
+
   // ✅ Prevenir retroceso en Android (corregido)
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -77,34 +83,37 @@ export default function StaffPerfilScreen() {
     console.log('🔔 Ver notificaciones');
   };
 
-  const handleEditName = () => {
-    Alert.prompt(
-      'Editar nombre de cafetería',
-      'Ingresa el nuevo nombre:',
-      (newName) => {
-        if (newName && newName.trim()) {
-          setConfig((prev) => ({ ...prev, name: newName.trim() }));
-          Alert.alert('✅ Nombre actualizado', `Ahora se llama: ${newName.trim()}`);
-        }
-      },
-      'plain-text',
-      config.name
-    );
+  const openEditModal = (field: 'name' | 'schedule') => {
+    setEditField(field);
+    setEditValue(field === 'name' ? config.name : config.schedule);
+    setEditModalVisible(true);
   };
 
-  const handleEditSchedule = () => {
-    Alert.prompt(
-      'Editar horario',
-      'Ingresa el nuevo horario (ej: 08:00 - 19:00):',
-      (newSchedule) => {
-        if (newSchedule && newSchedule.trim()) {
-          setConfig((prev) => ({ ...prev, schedule: newSchedule.trim() }));
-          Alert.alert('✅ Horario actualizado', `Nuevo horario: ${newSchedule.trim()}`);
-        }
-      },
-      'plain-text',
-      config.schedule
-    );
+  const handleSaveEdit = () => {
+    if (!editValue.trim()) {
+      Alert.alert('Campo vacío', 'Por favor ingresa un valor válido.');
+      return;
+    }
+
+    if (editField === 'name') {
+      setConfig((prev) => ({ ...prev, name: editValue.trim() }));
+      Alert.alert('✅ Nombre actualizado', `Ahora se llama: ${editValue.trim()}`);
+    } else {
+      // Validar formato de horario (opcional)
+      const scheduleRegex = /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/;
+      if (!scheduleRegex.test(editValue.trim())) {
+        Alert.alert(
+          'Formato inválido',
+          'Usa el formato: HH:MM - HH:MM (ej: 08:00 - 20:00)'
+        );
+        return;
+      }
+      setConfig((prev) => ({ ...prev, schedule: editValue.trim() }));
+      Alert.alert('✅ Horario actualizado', `Nuevo horario: ${editValue.trim()}`);
+    }
+
+    setEditModalVisible(false);
+    setEditValue('');
   };
 
   const handleUpdateAnnouncement = () => {
@@ -208,7 +217,7 @@ export default function StaffPerfilScreen() {
             {/* Nombre de Cafetería */}
             <TouchableOpacity
               style={styles.settingCard}
-              onPress={handleEditName}
+              onPress={() => openEditModal('name')}
               activeOpacity={0.8}
             >
               <View style={styles.settingHeader}>
@@ -222,7 +231,7 @@ export default function StaffPerfilScreen() {
             {/* Horario de Servicio */}
             <TouchableOpacity
               style={[styles.settingCard, styles.settingCardSecondary]}
-              onPress={handleEditSchedule}
+              onPress={() => openEditModal('schedule')}
               activeOpacity={0.8}
             >
               <View style={styles.settingHeader}>
@@ -325,6 +334,60 @@ export default function StaffPerfilScreen() {
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {/* ── MODAL DE EDICIÓN ── */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={editModalVisible}
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  Editar {editField === 'name' ? 'Nombre' : 'Horario'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setEditModalVisible(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color={COLORS.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={styles.modalInput}
+                value={editValue}
+                onChangeText={setEditValue}
+                placeholder={editField === 'name' ? 'Nombre de la cafetería' : 'Ej: 08:00 - 20:00'}
+                placeholderTextColor={COLORS.outlineVariant}
+                autoFocus={true}
+              />
+
+              {editField === 'schedule' && (
+                <Text style={styles.modalHint}>
+                  Formato sugerido: HH:MM - HH:MM (ejemplo: 09:00 - 18:00)
+                </Text>
+              )}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setEditModalVisible(false)}
+                >
+                  <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonSave]}
+                  onPress={handleSaveEdit}
+                >
+                  <Text style={styles.modalButtonSaveText}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* ── BOTTOM NAVIGATION BAR (no transparente) ── */}
         <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
@@ -662,5 +725,81 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: COLORS.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.onSurface,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalInput: {
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    color: COLORS.onSurface,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    marginBottom: 12,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: COLORS.onSurfaceVariant,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: COLORS.surfaceContainerHighest,
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+  },
+  modalButtonSave: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.onPrimary,
   },
 });

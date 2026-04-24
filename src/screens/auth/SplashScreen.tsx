@@ -12,7 +12,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp } from '../../types';
 
 const COLORS = {
   primary: '#630ED4',
@@ -22,13 +21,15 @@ const COLORS = {
   onSurfaceVariant: '#4A4455',
   onPrimary: '#FFFFFF',
   surfaceContainerLow: '#F3F4F5',
+  surfaceContainerLowest: '#FFFFFF',
   surfaceContainerHighest: '#E1E3E4',
+  outlineVariant: '#CCC3D8',
 };
 
 export default function SplashScreen() {
   const navigation = useNavigation<any>();
 
-  // 🎬 ANIMACIONES DE FONDO
+  // Animaciones de fondo
   const anim1X = useRef(new Animated.Value(0)).current;
   const anim1Y = useRef(new Animated.Value(0)).current;
   const anim2X = useRef(new Animated.Value(0)).current;
@@ -53,27 +54,20 @@ export default function SplashScreen() {
     makeLoop(anim3Y, -40, 3200).start();
   }, []);
 
-  const handleGoogleSignIn = () => {
-    console.log('🔐 Simulando autenticación con Google...');
-    navigation.replace('StudentStack');
-  };
-
-  const handleStaffLogin = () => {
-    console.log('👨‍🍳 Navegando a login de personal');
-    navigation.navigate('LoginPersonal');
+  const handleGetStarted = () => {
+    console.log('🚀 Navegando al login unificado');
+    navigation.replace('LoginUnificado'); // ← Cambiado a LoginUnificado
   };
 
   return (
     <SafeAreaView style={styles.container}>
-
-      {/* ── FONDO ANIMADO ── */}
+      {/* Fondo animado */}
       <Animated.View style={[styles.blob1, { transform: [{ translateX: anim1X }, { translateY: anim1Y }] }]} />
       <Animated.View style={[styles.blob2, { transform: [{ translateX: anim2X }, { translateY: anim2Y }] }]} />
       <Animated.View style={[styles.blob3, { transform: [{ translateX: anim3X }, { translateY: anim3Y }] }]} />
 
       <View style={styles.content}>
-
-        {/* ── HEADER ── */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logoGlow} />
@@ -85,7 +79,7 @@ export default function SplashScreen() {
           </View>
         </View>
 
-        {/* ── IMAGEN CENTRAL ── */}
+        {/* Imagen central */}
         <View style={styles.imageContainer}>
           <View style={styles.imageBg1} />
           <View style={styles.imageBg2} />
@@ -93,40 +87,30 @@ export default function SplashScreen() {
             source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA8OPsYLHjplk2d8uo3WFy36cuf334DI5KmTMlQPlQQJQmtFQ0jbXOsbDzicP_8TRs25CC5_Hi3nxNetLO-tqtXeSDZOgbpO2eNhvibZJco5pCxMiqita7lJS3qJNd88un7m3RYWr0OcnqBj7EpJyfu5syBEnNlz0uKtoi5rc-bGo_xsJWZr4FsIw_UzdRFk42UOfc6wg4ifbMBgqPUjSNh4MEJyUXgI5VLDybVuPFBP-5sLe8Sd_hiM1oMqWXB-M27I7Hi6iuYbiM' }}
             style={styles.coffeeImage}
             resizeMode="cover"
-            accessibilityLabel="Café de especialidad siendo servido"
           />
         </View>
 
-        {/* ── ACCIONES ── */}
+        {/* Botón principal */}
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.startButton} onPress={handleGetStarted} activeOpacity={0.8}>
             <LinearGradient
               colors={[COLORS.primary, COLORS.primaryContainer]}
               style={styles.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <MaterialCommunityIcons name="google" size={20} color={COLORS.onPrimary} />
-              <Text style={styles.googleButtonText}>Continuar con Google</Text>
+              <Text style={styles.startButtonText}>Comenzar</Text>
+              <MaterialCommunityIcons name="arrow-right" size={20} color={COLORS.onPrimary} />
             </LinearGradient>
           </TouchableOpacity>
-
-          <View style={styles.helperText}>
-            <Text style={styles.helperTextBase}>
-              Usa tu cuenta institucional{' '}
-              <Text style={styles.helperTextAccent}>@unach.mx</Text>
-            </Text>
-          </View>
         </View>
 
-        {/* ── FOOTER (subido) ── */}
-        <TouchableOpacity style={styles.footer} onPress={handleStaffLogin} accessibilityLabel="Acceso para personal de cafetería">
+        {/* Footer */}
+        <View style={styles.footer}>
           <Text style={styles.footerText}>
-            ¿Eres personal de cafetería?{' '}
-            <Text style={styles.footerLink}>Accede aquí</Text>
+            © 2024 YaTa Cafetería - Todos los derechos reservados
           </Text>
-        </TouchableOpacity>
-
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -138,7 +122,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
   },
-  // 🟣 Blobs animados
   blob1: {
     position: 'absolute',
     top: -120,
@@ -238,18 +221,25 @@ const styles = StyleSheet.create({
     height: 256,
     borderRadius: 24,
     elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
   actions: {
     width: '100%',
     alignItems: 'center',
-    gap: 24,
-    marginBottom: 8,
+    marginBottom: 24,
   },
-  googleButton: {
+  startButton: {
     width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   gradient: {
     flexDirection: 'row',
@@ -259,37 +249,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
   },
-  googleButtonText: {
+  startButtonText: {
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.onPrimary,
   },
-  helperText: {
-    alignItems: 'center',
-  },
-  helperTextBase: {
-    fontSize: 14,
-    color: COLORS.onSurfaceVariant,
-    textAlign: 'center',
-  },
-  helperTextAccent: {
-    color: COLORS.primary,
-    fontWeight: '500',
-    letterSpacing: -0.5,
-  },
-  // Footer subido: más paddingBottom + paddingTop para separarlo del botón
   footer: {
     alignItems: 'center',
-    paddingBottom: 36,
-    paddingTop: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 11,
     color: COLORS.onSurfaceVariant,
-    opacity: 0.7,
-  },
-  footerLink: {
-    color: COLORS.primary,
-    fontWeight: '600',
+    opacity: 0.5,
+    textAlign: 'center',
   },
 });

@@ -85,15 +85,16 @@ const MOCK_ORDERS: Order[] = [
         done: false
       },
       { id: '1b', name: 'Café de Olla', quantity: 1, done: false },
+      { id: '1c', name: 'Pan Dulce', quantity: 3, customization: 'Dos de concha, uno de elote', done: false },
     ],
     createdAt: new Date(now.getTime() - 2 * 60000),
     paymentMethod: 'tarjeta', status: 'pendiente', priority: true,
-    specialInstructions: 'Cliente con prisa',
+    specialInstructions: 'Cliente con prisa, entregar en mesa 3',
   },
   {
     id: '2', orderNumber: '#A-243',
     items: [
-      { id: '2a', name: 'Baguette de Pollo', quantity: 1, customization: 'Sin mayonesa', done: false },
+      { id: '2a', name: 'Baguette de Pollo', quantity: 1, customization: 'Sin mayonesa, pan integral', specialInstruction: 'Pollo bien cocido', done: false },
       { id: '2b', name: 'Jugo de Naranja', quantity: 2, done: false },
     ],
     createdAt: new Date(now.getTime() - 5 * 60000),
@@ -102,9 +103,9 @@ const MOCK_ORDERS: Order[] = [
   {
     id: '3', orderNumber: '#A-240',
     items: [
-      { id: '3a', name: 'Bowl Académico', quantity: 1, customization: 'Sin quinoa, extra garbanzos', done: true },
+      { id: '3a', name: 'Bowl Académico', quantity: 1, customization: 'Sin quinoa, extra garbanzos', done: false },
       { id: '3b', name: 'Agua de Jamaica', quantity: 1, done: false },
-      { id: '3c', name: 'Cuernito de Chocolate', quantity: 2, done: true },
+      { id: '3c', name: 'Cuernito de Chocolate', quantity: 2, done: false },
     ],
     createdAt: new Date(now.getTime() - 8 * 60000),
     startedAt: new Date(now.getTime() - 4 * 60000),
@@ -114,7 +115,7 @@ const MOCK_ORDERS: Order[] = [
   {
     id: '4', orderNumber: '#A-239',
     items: [
-      { id: '4a', name: 'Bagel de Huevo', quantity: 1, customization: 'Huevo bien cocido', done: true },
+      { id: '4a', name: 'Bagel de Huevo', quantity: 1, customization: 'Huevo bien cocido', specialInstruction: 'Con aguacate extra', done: true },
       { id: '4b', name: 'Té Helado', quantity: 1, done: true },
     ],
     createdAt: new Date(now.getTime() - 15 * 60000),
@@ -124,7 +125,7 @@ const MOCK_ORDERS: Order[] = [
   {
     id: '5', orderNumber: '#A-238',
     items: [
-      { id: '5a', name: 'Ensalada César', quantity: 1, customization: 'Sin crutones, aderezo aparte', done: true },
+      { id: '5a', name: 'Ensalada César', quantity: 1, customization: 'Sin crutones, aderezo aparte', specialInstruction: 'Pollo a la plancha', done: true },
       { id: '5b', name: 'Limonada Mineral', quantity: 2, done: true },
     ],
     createdAt: new Date(now.getTime() - 20 * 60000),
@@ -200,28 +201,38 @@ export default function KDSScreen() {
   };
 
   const handleToggleItem = (orderId: string, itemId: string) => {
-    setOrders(prev => prev.map(o =>
-      o.id === orderId
-        ? { ...o, items: o.items.map(i => i.id === itemId ? { ...i, done: !i.done } : i) }
-        : o
-    ));
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+
+      const updatedItems = o.items.map(i =>
+        i.id === itemId ? { ...i, done: !i.done } : i
+      );
+
+      // Verificar si todos los items están listos
+      const allItemsReady = updatedItems.every(i => i.done);
+
+      // Si todos están listos y el estado es 'en_preparacion', preguntar si marcar como listo
+      if (allItemsReady && o.status === 'en_preparacion') {
+        setTimeout(() => {
+          Alert.alert(
+            '✅ Todos los items están listos',
+            '¿Deseas marcar este pedido como listo para entregar?',
+            [
+              { text: 'No', style: 'cancel' },
+              { text: 'Sí, marcar como listo', onPress: () => handleMarkReady(orderId) }
+            ]
+          );
+        }, 100);
+      }
+
+      return { ...o, items: updatedItems };
+    }));
   };
 
   const handleMarkReady = (orderId: string) => {
-    const order = orders.find(o => o.id === orderId);
-    const pendingItems = order?.items.filter(i => !i.done).length ?? 0;
-    if (pendingItems > 0) {
-      Alert.alert(
-        '¿Marcar como listo?',
-        `Quedan ${pendingItems} ${pendingItems === 1 ? 'ítem sin' : 'ítems sin'} marcar. ¿Continuar?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Marcar listo', onPress: () => setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'listo' } : o)) },
-        ]
-      );
-    } else {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'listo' } : o));
-    }
+    setOrders(prev => prev.map(o =>
+      o.id === orderId ? { ...o, status: 'listo' } : o
+    ));
   };
 
   const handleDeliverOrder = (orderId: string) => {
@@ -244,9 +255,79 @@ export default function KDSScreen() {
   const prepOrders = orders.filter(o => o.status === 'en_preparacion');
   const readyOrders = orders.filter(o => o.status === 'listo');
 
-  // Renderizar detalle del pedido en modal
+  // Renderizar item individual con checkbox y observaciones
+  const renderOrderItem = (orderId: string, item: OrderItem, showCheckbox: boolean = false) => {
+    const hasCustomization = !!item.customization;
+    const hasInstruction = !!item.specialInstruction;
+
+    const itemContent = (
+      <View style={styles.itemContent}>
+        <View style={styles.itemHeader}>
+          <Text style={[
+            styles.itemQuantity,
+            !showCheckbox && item.done && styles.itemDoneText
+          ]}>{item.quantity}×</Text>
+          <Text style={[
+            styles.itemName,
+            !showCheckbox && item.done && styles.itemDoneText
+          ]}>{item.name}</Text>
+        </View>
+
+        {/* Customización del producto */}
+        {hasCustomization && (
+          <View style={styles.itemCustomization}>
+            <MaterialCommunityIcons name="pencil" size={12} color={COLORS.primary} />
+            <Text style={styles.itemCustomizationText}>{item.customization}</Text>
+          </View>
+        )}
+
+        {/* Instrucción especial del producto */}
+        {hasInstruction && (
+          <View style={styles.itemInstruction}>
+            <MaterialCommunityIcons name="note-text" size={12} color={COLORS.amber} />
+            <Text style={styles.itemInstructionText}>💡 {item.specialInstruction}</Text>
+          </View>
+        )}
+      </View>
+    );
+
+    // Si showCheckbox es true, mostrar con checkbox (solo para preparación)
+    if (showCheckbox) {
+      return (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.itemCard}
+          onPress={() => handleToggleItem(orderId, item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.itemCheckbox}>
+            <MaterialCommunityIcons
+              name={item.done ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+              size={22}
+              color={item.done ? COLORS.green : COLORS.onSurfaceVariant}
+            />
+          </View>
+          {itemContent}
+        </TouchableOpacity>
+      );
+    }
+
+    // Si showCheckbox es false, mostrar sin checkbox (para pendiente y listo)
+    return (
+      <View key={item.id} style={[styles.itemCard, styles.itemCardReadOnly]}>
+        <View style={styles.itemCheckboxPlaceholder} />
+        {itemContent}
+      </View>
+    );
+  };
+
+  // Renderizar detalle del pedido en modal (con checkboxes siempre visibles)
   const renderOrderDetailModal = () => {
     if (!selectedOrder) return null;
+
+    const doneCount = selectedOrder.items.filter(i => i.done).length;
+    const totalCount = selectedOrder.items.length;
+    const progressPct = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
 
     return (
       <Modal
@@ -271,7 +352,15 @@ export default function KDSScreen() {
                 <Text style={styles.modalOrderNumberText}>{selectedOrder.orderNumber}</Text>
               </View>
 
-              {/* Tiempo */}
+              {/* Progress en modal */}
+              <View style={styles.modalProgressContainer}>
+                <View style={styles.modalProgressBar}>
+                  <View style={[styles.modalProgressFill, { width: `${progressPct}%` }]} />
+                </View>
+                <Text style={styles.modalProgressText}>{doneCount}/{totalCount} preparados</Text>
+              </View>
+
+              {/* Tiempo y pago */}
               <View style={styles.modalInfoRow}>
                 <View style={styles.modalInfoItem}>
                   <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.onSurfaceVariant} />
@@ -290,55 +379,101 @@ export default function KDSScreen() {
               {/* Instrucciones especiales del pedido */}
               {selectedOrder.specialInstructions && (
                 <View style={styles.modalSpecialInstructions}>
-                  <Text style={styles.modalSectionTitle}>Instrucciones especiales</Text>
+                  <Text style={styles.modalSectionTitle}>Instrucciones generales</Text>
                   <Text style={styles.modalSpecialText}>{selectedOrder.specialInstructions}</Text>
                 </View>
               )}
 
-              {/* Items del pedido */}
+              {/* Items del pedido con checkboxes */}
               <Text style={styles.modalSectionTitle}>Productos</Text>
-              {selectedOrder.items.map((item, idx) => (
-                <View key={item.id} style={styles.modalItemCard}>
+              {selectedOrder.items.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.modalItemCard}
+                  onPress={() => {
+                    handleToggleItem(selectedOrder.id, item.id);
+                    // Actualizar el selectedOrder también
+                    setSelectedOrder(prev => prev ? {
+                      ...prev,
+                      items: prev.items.map(i =>
+                        i.id === item.id ? { ...i, done: !i.done } : i
+                      )
+                    } : null);
+                  }}
+                >
                   <View style={styles.modalItemHeader}>
-                    <Text style={styles.modalItemQuantity}>{item.quantity}×</Text>
-                    <Text style={styles.modalItemName}>{item.name}</Text>
-                    {item.done && (
-                      <View style={styles.modalItemDoneBadge}>
-                        <Text style={styles.modalItemDoneText}>✓ Listo</Text>
+                    <MaterialCommunityIcons
+                      name={item.done ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+                      size={22}
+                      color={item.done ? COLORS.green : COLORS.onSurfaceVariant}
+                    />
+                    <View style={styles.modalItemContent}>
+                      <View style={styles.modalItemTitleRow}>
+                        <Text style={styles.modalItemQuantity}>{item.quantity}×</Text>
+                        <Text style={[styles.modalItemName, item.done && styles.modalItemDone]}>{item.name}</Text>
                       </View>
-                    )}
+
+                      {item.customization && (
+                        <View style={styles.modalItemCustomization}>
+                          <Text style={styles.modalItemCustomizationText}>✏️ {item.customization}</Text>
+                        </View>
+                      )}
+
+                      {item.specialInstruction && (
+                        <View style={styles.modalItemInstruction}>
+                          <Text style={styles.modalItemInstructionText}>📝 {item.specialInstruction}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-
-                  {item.customization && (
-                    <View style={styles.modalItemCustomization}>
-                      <MaterialCommunityIcons name="pencil" size={12} color={COLORS.primary} />
-                      <Text style={styles.modalItemCustomizationText}>{item.customization}</Text>
-                    </View>
-                  )}
-
-                  {item.specialInstruction && (
-                    <View style={styles.modalItemInstruction}>
-                      <MaterialCommunityIcons name="note-text" size={12} color={COLORS.amber} />
-                      <Text style={styles.modalItemInstructionText}>{item.specialInstruction}</Text>
-                    </View>
-                  )}
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.modalCloseButtonText}>Cerrar</Text>
-            </TouchableOpacity>
+            <View style={styles.modalActions}>
+              {selectedOrder.status === 'pendiente' && (
+                <TouchableOpacity
+                  style={styles.modalStartButton}
+                  onPress={() => {
+                    handleStartPrep(selectedOrder.id);
+                    setModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalStartButtonText}>Iniciar preparación</Text>
+                </TouchableOpacity>
+              )}
+
+              {selectedOrder.status === 'en_preparacion' && (
+                <TouchableOpacity
+                  style={[styles.modalReadyButton, doneCount === totalCount && styles.modalReadyButtonFull]}
+                  onPress={() => {
+                    handleMarkReady(selectedOrder.id);
+                    setModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalReadyButtonText}>Marcar como listo</Text>
+                </TouchableOpacity>
+              )}
+
+              {selectedOrder.status === 'listo' && (
+                <TouchableOpacity
+                  style={styles.modalDeliverButton}
+                  onPress={() => {
+                    handleDeliverOrder(selectedOrder.id);
+                    setModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalDeliverButtonText}>Entregar pedido</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
     );
   };
 
-  // RENDER: ORDER CARD
+  // RENDER: ORDER CARD (con items editables solo en preparación)
   const renderOrderCard = (order: Order) => {
     const elapsed = getElapsedMin(order.createdAt);
     const prepElapsed = order.startedAt ? getElapsedMin(order.startedAt) : 0;
@@ -362,22 +497,29 @@ export default function KDSScreen() {
           isUrgent && { transform: [{ scale: pulseAnim }] },
         ]}
       >
-        {/* Header */}
-        <TouchableOpacity
-          style={styles.cardHeader}
-          onPress={() => handleViewOrderDetail(order)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeaderLeft}>
+        {/* Header con número de orden y botón de detalle */}
+        <View style={styles.cardHeader}>
+          <TouchableOpacity
+            style={styles.cardHeaderLeft}
+            onPress={() => handleViewOrderDetail(order)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.orderNumber}>{order.orderNumber}</Text>
             <View style={[styles.paymentBadge, order.paymentMethod === 'tarjeta' ? styles.paymentCard : styles.paymentCash]}>
               <Text style={styles.paymentText}>
                 {order.paymentMethod === 'tarjeta' ? '💳' : '💵'}
               </Text>
             </View>
-          </View>
-          <MaterialCommunityIcons name="eye" size={20} color={COLORS.primary} />
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.detailButton}
+            onPress={() => handleViewOrderDetail(order)}
+          >
+            <MaterialCommunityIcons name="eye" size={20} color={COLORS.primary} />
+            <Text style={styles.detailButtonText}>Detalle</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Timer */}
         <View style={styles.timerRow}>
@@ -397,7 +539,7 @@ export default function KDSScreen() {
           )}
         </View>
 
-        {/* Progress */}
+        {/* Progress Bar - Solo mostrar en preparación */}
         {isPrep && (
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
@@ -407,21 +549,9 @@ export default function KDSScreen() {
           </View>
         )}
 
-        {/* Items preview */}
-        <View style={styles.itemsPreview}>
-          {order.items.slice(0, 2).map(item => (
-            <View key={item.id} style={styles.itemPreviewRow}>
-              <Text style={styles.itemPreviewText}>
-                <Text style={styles.itemQuantity}>{item.quantity}×</Text> {item.name}
-              </Text>
-              {item.customization && (
-                <MaterialCommunityIcons name="pencil" size={12} color={COLORS.onSurfaceVariant} />
-              )}
-            </View>
-          ))}
-          {order.items.length > 2 && (
-            <Text style={styles.moreItemsText}>+{order.items.length - 2} más...</Text>
-          )}
+        {/* Items list - Mostrar checkboxes solo en preparación */}
+        <View style={styles.itemsList}>
+          {order.items.map(item => renderOrderItem(order.id, item, isPrep))}
         </View>
 
         {/* Actions */}
@@ -431,12 +561,17 @@ export default function KDSScreen() {
             <Text style={styles.btnPendingText}>Iniciar preparación</Text>
           </TouchableOpacity>
         )}
+
         {isPrep && (
-          <TouchableOpacity style={[styles.btnReady, doneCount === totalCount && styles.btnReadyFull]} onPress={() => handleMarkReady(order.id)}>
+          <TouchableOpacity
+            style={[styles.btnReady, doneCount === totalCount && styles.btnReadyFull]}
+            onPress={() => handleMarkReady(order.id)}
+          >
             <MaterialCommunityIcons name="check-all" size={20} color={COLORS.onPrimary} />
             <Text style={styles.btnReadyText}>Marcar como listo</Text>
           </TouchableOpacity>
         )}
+
         {isReady && (
           <TouchableOpacity style={styles.btnDeliver} onPress={() => handleDeliverOrder(order.id)}>
             <MaterialCommunityIcons name="bell-ring-outline" size={20} color={COLORS.green} />
@@ -779,6 +914,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.onSurfaceVariant,
   },
+  detailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primaryDim,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  detailButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
 
   // Timer
   timerRow: {
@@ -820,36 +969,78 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: COLORS.primary,
-    width: 30,
+    width: 35,
     textAlign: 'right',
   },
 
-  // Items Preview
-  itemsPreview: {
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 8,
+  // Items List
+  itemsList: {
+    gap: 8,
+    maxHeight: 180,
   },
-  itemPreviewRow: {
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 10,
+  },
+  itemCardReadOnly: {
+    opacity: 0.85,
+  },
+  itemCheckbox: {
+    paddingTop: 2,
+  },
+  itemCheckboxPlaceholder: {
+    width: 22,
+    height: 22,
+    paddingTop: 2,
+  },
+  itemContent: {
+    flex: 1,
+    gap: 4,
+  },
+  itemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  itemPreviewText: {
-    fontSize: 12,
-    color: COLORS.onSurfaceVariant,
-    flex: 1,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   itemQuantity: {
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.primary,
   },
-  moreItemsText: {
+  itemName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.onSurface,
+    flex: 1,
+  },
+  itemDoneText: {
+    textDecorationLine: 'line-through',
+    opacity: 0.6,
+  },
+  itemCustomization: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  itemCustomizationText: {
     fontSize: 11,
-    color: COLORS.onSurfaceVariant,
+    color: COLORS.primary,
     fontStyle: 'italic',
-    marginTop: 2,
+  },
+  itemInstruction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  itemInstructionText: {
+    fontSize: 11,
+    color: COLORS.amber,
+    fontStyle: 'italic',
   },
 
   // Buttons
@@ -935,7 +1126,7 @@ const styles = StyleSheet.create({
     color: COLORS.onSurface,
   },
   modalScroll: {
-    maxHeight: '80%',
+    maxHeight: '70%',
   },
   modalOrderNumber: {
     flexDirection: 'row',
@@ -953,6 +1144,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  modalProgressContainer: {
+    marginBottom: 16,
+  },
+  modalProgressBar: {
+    height: 8,
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  modalProgressFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+  },
+  modalProgressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+    textAlign: 'right',
   },
   modalInfoRow: {
     flexDirection: 'row',
@@ -992,6 +1204,15 @@ const styles = StyleSheet.create({
   },
   modalItemHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  modalItemContent: {
+    flex: 1,
+    gap: 4,
+  },
+  modalItemTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
@@ -1007,51 +1228,65 @@ const styles = StyleSheet.create({
     color: COLORS.onSurface,
     flex: 1,
   },
-  modalItemDoneBadge: {
-    backgroundColor: COLORS.greenDim,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  modalItemDoneText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.green,
+  modalItemDone: {
+    textDecorationLine: 'line-through',
+    opacity: 0.6,
   },
   modalItemCustomization: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: COLORS.primary,
   },
   modalItemCustomizationText: {
     fontSize: 12,
-    color: COLORS.onSurfaceVariant,
-    flex: 1,
+    color: COLORS.primary,
   },
   modalItemInstruction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: COLORS.amber,
   },
   modalItemInstructionText: {
     fontSize: 12,
-    fontStyle: 'italic',
     color: COLORS.amber,
-    flex: 1,
+    fontStyle: 'italic',
   },
-  modalCloseButton: {
+  modalActions: {
+    marginTop: 16,
+    gap: 10,
+  },
+  modalStartButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 16,
   },
-  modalCloseButtonText: {
+  modalStartButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.onPrimary,
+  },
+  modalReadyButton: {
+    backgroundColor: `${COLORS.primary}80`,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalReadyButtonFull: {
+    backgroundColor: COLORS.primary,
+  },
+  modalReadyButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.onPrimary,
+  },
+  modalDeliverButton: {
+    backgroundColor: COLORS.green,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalDeliverButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.onPrimary,

@@ -1,4 +1,3 @@
-// 👤 Estudiante
 export type StudentTabParamList = {
   Home: undefined;
   Menu: undefined;
@@ -17,7 +16,6 @@ export type StudentStackParamList = {
   Promo: undefined;
 };
 
-// 👨‍🍳 Staff
 export type StaffStackParamList = {
   StaffHome: undefined;
   KDS: undefined;
@@ -26,16 +24,13 @@ export type StaffStackParamList = {
   StaffPerfil: undefined;
 };
 
-// 🔐 Root (autenticación)
 export type RootStackParamList = {
   Splash: undefined;
-  LoginEstudiante: undefined;
-  LoginPersonal: undefined;
+  LoginUnificado: undefined;
   StudentStack: undefined;
   StaffStack: undefined;
 };
 
-// 🎯 Tipo global para useNavigation
 export type NavigationProp = {
   navigate<RouteName extends keyof RootStackParamList>(
     route: RouteName,
@@ -45,7 +40,6 @@ export type NavigationProp = {
   popToTop(): void;
 };
 
-// 🛒 Personalización de productos
 export interface SizeOption {
   id: string;
   name: string;

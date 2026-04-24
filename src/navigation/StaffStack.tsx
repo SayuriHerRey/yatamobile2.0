@@ -13,15 +13,7 @@ export default function StaffStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="StaffHome" component={StaffHomeScreen} />
-      <Stack.Screen 
-        name="KDS" 
-        component={KDSScreen}
-        options={{ 
-          // Para KDS: sin animación de entrada, para que se vea inmediato
-          animation: 'none',
-          // Nota: La orientación horizontal se maneja dentro de KDSScreen con expo-screen-orientation
-        }} 
-      />
+      <Stack.Screen name="KDS" component={KDSScreen} />
       <Stack.Screen name="GestionMenu" component={GestionMenuScreen} />
       <Stack.Screen name="Estadisticas" component={EstadisticasScreen} />
       <Stack.Screen name="StaffPerfil" component={StaffPerfilScreen} />
