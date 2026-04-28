@@ -1,21 +1,22 @@
 // src/screens/kitchen/EstadisticasScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Platform,
   StatusBar,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// 🎨 COLORES (consistente con el resto de la app)
+// 🎨 COLORES
 const COLORS = {
   primary: '#630ED4',
   primaryContainer: '#7C3AED',
@@ -44,13 +45,8 @@ interface TopProduct {
 
 interface HourlyData {
   hour: string;
-  value: number; // 0-100 para altura de barra
+  value: number; 
 }
-
-// 👤 DATOS MOCK (luego vendrán de analytics-service)
-const STAFF_USER = {
-  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVLPgqfJ4_wEpcHSHqgBTsM5UXPH9MLFSUF-v5aTfq3Kz4YjsEK4VD871ZV8LNUp2jOkGcvNJoL_BoP_MtiIt4CcmJnWsLomU67jaj6uKTFDWv_CsNAyJgiyJDCCqZSVecc7alIjb5dOj4CGqKwMxWtyapMVUGQ_zn_-9aqkUR658jkRQJFaEkRJ-FaE8BixknKVGBs-bz8LWZMzwk9ACizVkYbIKZSflOaAwErwAyM45OEZccyb6vMwmJA8N0InRdxMh9_8WmNQM',
-};
 
 const TIME_RANGES = [
   { id: 'today', label: 'Hoy' },
@@ -60,64 +56,43 @@ const TIME_RANGES = [
 
 type TimeRange = typeof TIME_RANGES[number]['id'];
 
-const METRICS = {
-  today: {
-    totalOrders: 145,
-    growth: '+12%',
-    avgTicket: 82.00,
-    avgPrepTime: 10,
-  },
-  week: {
-    totalOrders: 892,
-    growth: '+8%',
-    avgTicket: 79.50,
-    avgPrepTime: 11,
-  },
-  month: {
-    totalOrders: 3421,
-    growth: '+15%',
-    avgTicket: 81.20,
-    avgPrepTime: 10,
-  },
+const STAFF_USER = {
+  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVLPgqfJ4_wEpcHSHqgBTsM5UXPH9MLFSUF-v5aTfq3Kz4YjsEK4VD871ZV8LNUp2jOkGcvNJoL_BoP_MtiIt4CcmJnWsLomU67jaj6uKTFDWv_CsNAyJgiyJDCCqZSVecc7alIjb5dOj4CGqKwMxWtyapMVUGQ_zn_-9aqkUR658jkRQJFaEkRJ-FaE8BixknKVGBs-bz8LWZMzwk9ACizVkYbIKZSflOaAwErwAyM45OEZccyb6vMwmJA8N0InRdxMh9_8WmNQM',
 };
-
-const HOURLY_DATA: HourlyData[] = [
-  { hour: '08:00', value: 40 },
-  { hour: '10:00', value: 65 },
-  { hour: '12:00', value: 90 }, // Pico de mediodía
-  { hour: '14:00', value: 75 },
-  { hour: '16:00', value: 50 },
-  { hour: '18:00', value: 30 },
-];
-
-const TOP_PRODUCTS: TopProduct[] = [
-  {
-    id: '1',
-    name: 'Torta de lomo',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD1ouOIh-PDhjhziMdxcyYJ73rkQUvfyajMAhDCrKBYg9BMEzlrbI_xV0f3lJkdUteJSfPULk6y6Fed-WWLxgb_HE1lvd_w9VzJyCv-vPQU61fGlrIRi9C4NYVo9xHk6bnHtelrWDgz_xxOXq7aNzv3iZJGFQlFjfimhIYOgv_WW-qFrKuYPZEBYxsgplG9BhR27lPQMJbGW9slepN1P7PddxyJNo5LUnNTPTS2tZzULzG4GYkKKHB0al-jOvUsPlOd3lCatTSmFXg',
-    ordersToday: 42,
-    revenue: 3444,
-  },
-  {
-    id: '2',
-    name: 'Café Americano',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzeiiZMnHY9bz0GqdRSkekrDzrEjtax09A5EEcWwFg1ggZ6yGDlSz3e3lipVHC_OJ0doItPO17gez_fsAzb4y-gyGiObOZphzRCEY_rYQ8fOU603wHY7h1ixaHkGGXWoLT5IgTiTrgDFdtg7GASJIpvIuP8Oo4u85VLFMCC6m1WfSmlh9Ynfo4Xfmb76AP2YAOfwdc-FCRoUUOOOOzBcRIXQTXg_s-aP8ZNPFf4Xm83FZCovglE1cY2oBnRasciU3GtMR8g11dTCM',
-    ordersToday: 38,
-    revenue: 1140,
-  },
-  {
-    id: '3',
-    name: 'Chilaquiles Verdes',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1qVNHG75RcYrsJ6pJJ2tfhoaplrXcMq8mWVMMLMCcfEKJuPIBjYlI5iQ5Vu7t5tysKafjAySyLQLOQqyI4bAQKJLMRMw9OcImSUZYnl1ifbzO16GN4qhcWodu0B1RMKfs02KXPxBuZn6D7DmBEst9s7kgurYMUVSwXPik-EUqRk-mOGkagQ15CAmkmTBtE-i7A5nhm4IP2tH7q9HUe6hkDzzj8I4o2zn_-CweO0E7Hywa-2q6Ce2Mf36dzRTsDA70zvstXB6OTTE',
-    ordersToday: 25,
-    revenue: 2125,
-  },
-];
 
 export default function EstadisticasScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  
+  // 🔌 ESTADOS PARA LA API
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 🔄 EFECTO PARA CARGAR DATOS
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        // Hacemos la petición pasando el timeRange dinámico
+        const response = await fetch(`http://192.168.100.15:8001/api/v1/analytics/dashboard?time_range=${timeRange}`);        
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Error al obtener las estadísticas');
+        }
+
+        setDashboardData(data);
+      } catch (error: any) {
+        console.error("Error cargando estadísticas:", error);
+        Alert.alert('Error', error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [timeRange]); // Se vuelve a ejecutar si el usuario cambia a "Semana" o "Mes"
 
   // 🔧 HANDLERS
   const handleNotification = () => {
@@ -126,21 +101,24 @@ export default function EstadisticasScreen() {
 
   const handleTimeRangeChange = (range: TimeRange) => {
     setTimeRange(range);
-    console.log(`📅 Rango cambiado a: ${range}`);
   };
 
   const handleViewAllProducts = () => {
     console.log('📋 Ver todos los productos');
   };
 
-  const currentMetrics = METRICS[timeRange];
   const isToday = timeRange === 'today';
+
+  // Extraer los datos con fallback para evitar errores en lo que carga
+  const metrics = dashboardData?.metrics || { totalOrders: 0, growth: '0%', avgTicket: 0, avgPrepTime: 0 };
+  const hourlyData: HourlyData[] = dashboardData?.hourly_data || [];
+  const topProducts: TopProduct[] = dashboardData?.top_products || [];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
-      {/* ── TOP APP BAR CON PADDING PARA LA BARRA DE ESTADO ── */}
+      {/* ── TOP APP BAR ── */}
       <View style={[styles.topBar, { paddingTop: insets.top + 16 }]}>
         <View style={styles.topBarLeft}>
           <Image
@@ -195,93 +173,99 @@ export default function EstadisticasScreen() {
           </View>
         </View>
 
-        {/* Key Metrics Bento Grid */}
-        <View style={styles.metricsGrid}>
-          {/* Total Pedidos (full width) */}
-          <View style={[styles.metricCard, styles.metricCardWide]}>
-            <Text style={styles.metricLabel}>Total pedidos</Text>
-            <Text style={styles.metricValue}>{currentMetrics.totalOrders}</Text>
-            <View style={styles.growthIndicator}>
-              <MaterialCommunityIcons name="trending-up" size={14} color={COLORS.green} />
-              <Text style={styles.growthText}>{currentMetrics.growth} vs ayer</Text>
-            </View>
+        {isLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={{ marginTop: 10, color: COLORS.onSurfaceVariant }}>Cargando datos reales...</Text>
           </View>
-
-          {/* Ticket Promedio */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Ticket promedio</Text>
-            <Text style={styles.metricValueSmall}>${currentMetrics.avgTicket.toFixed(2)}</Text>
-          </View>
-
-          {/* Tiempo Prep. Med */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Tiempo prep. med</Text>
-            <View style={styles.timeValue}>
-              <Text style={styles.metricValueSmall}>{currentMetrics.avgPrepTime}</Text>
-              <Text style={styles.timeUnit}>min</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Bar Chart: Pedidos por hora */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Pedidos por hora</Text>
-            <MaterialCommunityIcons name="chart-bar" size={20} color={COLORS.onSurfaceVariant} />
-          </View>
-
-          <View style={styles.chartContainer}>
-            {HOURLY_DATA.map((item, index) => (
-              <View key={index} style={styles.barContainer}>
-                <View
-                  style={[
-                    styles.bar,
-                    { height: `${item.value}%` },
-                    timeRange === 'today' && item.value >= 80 && styles.barPeak,
-                  ]}
-                />
-                <Text style={styles.barLabel}>{item.hour}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Top Products List */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Top 5 productos</Text>
-            <TouchableOpacity onPress={handleViewAllProducts}>
-              <Text style={styles.viewAllText}>Ver todos</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.productsList}>
-            {TOP_PRODUCTS.map((product) => (
-              <View key={product.id} style={styles.productCard}>
-                <Image
-                  source={{ uri: product.image }}
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.productContent}>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {product.name}
-                  </Text>
-                  <Text style={styles.productOrders}>
-                    {product.ordersToday} pedidos {isToday ? 'hoy' : 'este período'}
-                  </Text>
+        ) : (
+          <>
+            {/* Key Metrics Bento Grid */}
+            <View style={styles.metricsGrid}>
+              <View style={[styles.metricCard, styles.metricCardWide]}>
+                <Text style={styles.metricLabel}>Total pedidos</Text>
+                <Text style={styles.metricValue}>{metrics.totalOrders}</Text>
+                <View style={styles.growthIndicator}>
+                  <MaterialCommunityIcons name="trending-up" size={14} color={COLORS.green} />
+                  <Text style={styles.growthText}>{metrics.growth} vs ayer</Text>
                 </View>
-                <Text style={styles.productRevenue}>+${product.revenue.toLocaleString()}</Text>
               </View>
-            ))}
-          </View>
-        </View>
+
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Ticket promedio</Text>
+                <Text style={styles.metricValueSmall}>${metrics.avgTicket}</Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Tiempo prep. med</Text>
+                <View style={styles.timeValue}>
+                  <Text style={styles.metricValueSmall}>{metrics.avgPrepTime}</Text>
+                  <Text style={styles.timeUnit}>min</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Bar Chart: Pedidos por hora */}
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>Pedidos por hora</Text>
+                <MaterialCommunityIcons name="chart-bar" size={20} color={COLORS.onSurfaceVariant} />
+              </View>
+
+              <View style={styles.chartContainer}>
+                {hourlyData.map((item, index) => (
+                  <View key={index} style={styles.barContainer}>
+                    <View
+                      style={[
+                        styles.bar,
+                        { height: `${item.value}%` },
+                        timeRange === 'today' && item.value >= 80 && styles.barPeak,
+                      ]}
+                    />
+                    <Text style={styles.barLabel}>{item.hour}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Top Products List */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Top 5 productos</Text>
+                <TouchableOpacity onPress={handleViewAllProducts}>
+                  <Text style={styles.viewAllText}>Ver todos</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.productsList}>
+                {topProducts.map((product) => (
+                  <View key={product.id} style={styles.productCard}>
+                    <Image
+                      source={{ uri: product.image }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.productContent}>
+                      <Text style={styles.productName} numberOfLines={1}>
+                        {product.name}
+                      </Text>
+                      <Text style={styles.productOrders}>
+                        {product.ordersToday} pedidos {isToday ? 'hoy' : 'este período'}
+                      </Text>
+                    </View>
+                    <Text style={styles.productRevenue}>+${product.revenue.toLocaleString()}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Espacio para bottom nav */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ── BOTTOM NAVIGATION BAR - SÓLIDA, NO TRANSPARENTE ── */}
+      {/* ── BOTTOM NAVIGATION BAR ── */}
       <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('StaffHome')}>
           <MaterialCommunityIcons name="home-outline" size={24} color={COLORS.onSurfaceVariant} />
@@ -307,14 +291,12 @@ export default function EstadisticasScreen() {
   );
 }
 
-// 🎨 ESTILOS
+// 🎨 ESTILOS (Intactos de tu código original)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
   },
-
-  /* Top Bar - Ajustado para que no se sobreponga con la barra de estado */
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -349,16 +331,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* Scroll Content */
   scrollContent: { flex: 1 },
   scrollPadding: {
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 100,
   },
-
-  /* Header Section */
   headerSection: {
     marginBottom: 24,
   },
@@ -399,8 +377,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
-
-  /* Metrics Grid */
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -459,8 +435,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.onSurfaceVariant,
   },
-
-  /* Chart Card */
   chartCard: {
     backgroundColor: COLORS.surfaceContainerLowest,
     borderRadius: 16,
@@ -513,8 +487,6 @@ const styles = StyleSheet.create({
     color: COLORS.onSurfaceVariant,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-
-  /* Section */
   section: {
     marginBottom: 24,
   },
@@ -537,8 +509,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-
-  /* Products List */
   productsList: {
     gap: 12,
   },
@@ -581,11 +551,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-
-  /* Bottom Spacer */
   bottomSpacer: { height: 24 },
-
-  /* Bottom Navigation - SÓLIDA, NO TRANSPARENTE */
   bottomNav: {
     position: 'absolute',
     bottom: 0,
@@ -596,7 +562,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 12,
     paddingHorizontal: 16,
-    backgroundColor: COLORS.surfaceContainerLowest, // ✅ SÓLIDO, no transparente
+    backgroundColor: COLORS.surfaceContainerLowest,
     borderTopWidth: 1,
     borderTopColor: COLORS.surfaceContainer,
     shadowColor: COLORS.onSurface,

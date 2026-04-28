@@ -33,30 +33,6 @@ const COLORS = {
   green: '#16A34A',
 };
 
-// Credenciales de ejemplo (en producción iría al backend)
-const MOCK_USERS = {
-  // Estudiantes
-  student1: {
-    email: 'alumno@unach.mx',
-    password: 'student123',
-    role: 'student',
-    name: 'Carlos Alumno',
-  },
-  student2: {
-    email: 'maria@unach.mx',
-    password: 'student123',
-    role: 'student',
-    name: 'María Estudiante',
-  },
-  chef: {
-    email: 'cocina@cafeteria.com',
-    password: 'cocina123',
-    role: 'staff',
-    name: 'Cocina',
-    staffRole: 'Personal cocina',
-  },
-};
-
 export default function LoginUnificadoScreen() {
   const navigation = useNavigation<any>();
   const [email, setEmail] = useState('');
@@ -90,7 +66,7 @@ export default function LoginUnificadoScreen() {
       return;
     }
 
-    // Detectar rol por dominio
+    // Detectar rol por dominio (mantiene tu validación visual)
     const role = detectRoleByEmail(email);
 
     if (!role) {
@@ -105,41 +81,56 @@ export default function LoginUnificadoScreen() {
 
     setLoading(true);
 
-    // Simular verificación con el servidor
-    setTimeout(() => {
-      const user = Object.values(MOCK_USERS).find(
-        u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
+    try {
+      // ⚠️ Recuerda: 10.0.2.2 para Emulador Android. Cambia por tu IP (ej. 192.168.1.75) si usas celular físico.
+      const response = await fetch('http://192.168.100.15:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        // Enviamos el email en minúsculas y sin espacios al backend
+        body: JSON.stringify({ 
+          email: email.trim().toLowerCase(), 
+          password: password 
+        }),
+      });
 
-      if (user) {
-        console.log('✅ Login exitoso:', user);
+      const data = await response.json();
 
-        // Guardar información del usuario (en producción usar AsyncStorage)
-        // await AsyncStorage.setItem('userToken', 'token123');
-        // await AsyncStorage.setItem('userRole', user.role);
-        // await AsyncStorage.setItem('userData', JSON.stringify(user));
-
-        // Navegar según el rol
-        if (user.role === 'student') {
-          navigation.replace('StudentStack');
-        } else if (user.role === 'staff') {
-          navigation.replace('StaffStack');
-        }
-      } else {
-        Alert.alert('Error de acceso', 'Correo o contraseña incorrectos');
+      if (!response.ok) {
+        throw new Error(data.detail || 'Correo o contraseña incorrectos');
       }
+
+      console.log('✅ Login exitoso en BD real. Token:', data.access_token);
+
+      // (Opcional) Aquí guardarías el token en AsyncStorage en el futuro
+      // await AsyncStorage.setItem('userToken', data.access_token);
+
+      // Navegar según el rol devuelto por el BACKEND (más seguro que el frontend)
+      if (data.role === 'student') {
+        navigation.replace('StudentStack');
+      } else if (data.role === 'staff') {
+        navigation.replace('StaffStack');
+      } else {
+        throw new Error('Rol no reconocido por el servidor');
+      }
+
+    } catch (error: any) {
+      Alert.alert('Error de acceso', error.message || 'No se pudo conectar al servidor');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleBackToSplash = () => {
     navigation.replace('Splash');
   };
 
-  // Credenciales de ejemplo para autocompletar
+  // Credenciales reales de la base de datos para autocompletar en desarrollo
   const exampleCredentials = [
-    { email: 'alumno@unach.mx', password: 'student123', role: 'estudiante', icon: 'account-school' },
-    { email: 'cocina@cafeteria.com', password: 'cocina123', role: 'cocina', icon: 'chef-hat' },
+    { email: 'estudiante@unach.mx', password: '123456', role: 'student', icon: 'account-school' },
+    { email: 'admin@cafeteria.com', password: 'admin123', role: 'staff', icon: 'chef-hat' },
   ];
 
   const fillCredentials = (cred: typeof exampleCredentials[0]) => {
