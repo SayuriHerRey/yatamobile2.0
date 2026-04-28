@@ -64,3 +64,11 @@ Una vez encendidos los servicios, puedes probar los endpoints y ver los modelos 
 Auth API: http://localhost:8000/docs
 
 Analytics API: http://localhost:8001/docs
+
+5. Para conectar la App móvil (Expo Go o Emulador), se debe usar la IP de la computadora en la red local.
+
+IP Actual detectada: ipconfig en el cmd
+
+Auth URL: http://[tuip]:8000/api/v1/auth/login
+
+Analytics URL: http://[tuip]:8001/api/v1/analytics/dashboard
