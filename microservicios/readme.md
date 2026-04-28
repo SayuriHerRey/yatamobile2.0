@@ -33,7 +33,7 @@ Fragmento de código
 DATABASE_URL=postgresql://tu_usuario:tu_password@localhost:5432/yata_auth_db
 Poblar datos de prueba: python seed_auth.py
 
-Ejecutar: uvicorn authApp.main:app --reload --port 8000
+Ejecutar: uvicorn authApp.main:app --reload --host 0.0.0.0 --port 8000
 
 3. Microservicio: Analytics Service
 Procesa las métricas de ventas y productos más vendidos.
@@ -56,7 +56,7 @@ Fragmento de código
 DATABASE_URL=postgresql://tu_usuario:tu_password@localhost:5432/yata_analytics_db
 Poblar datos de prueba: python seed_analytics.py
 
-Ejecutar: uvicorn analyticsApp.main:app --reload --port 8001
+Ejecutar: uvicorn analyticsApp.main:app --reload --host 0.0.0.0 --port 8001
 
 4. Documentación Interactiva (Swagger)
 Una vez encendidos los servicios, puedes probar los endpoints y ver los modelos en:
